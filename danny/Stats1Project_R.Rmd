@@ -16,13 +16,19 @@ library(lubridate)
 
 ```{r}
 dat<-read.csv("Lake_Powel_Inflow_Elevation_Outflow.csv")
+dat$netflows <- dat$total.inflows - dat$total.release
 # tdat<-tail(dat, n=10)
-# print(tdat)
+print(dat)
 
 # tdat$newdate <- strptime(as.character(tdat$datetime), "%d/%m/%Y")
 
+dat2<-aggregate(dat[, 9], list(dat$Year), sum)
+print(dat2)
 dat<-aggregate(dat[, 2:4], list(dat$Year), mean)
-dat
+
+dat<-dat[dat$Group.1 > 1980, ]
+
+print(dat)
 ```
 
 
@@ -34,6 +40,9 @@ ggscatter(dat, x = "total.inflows", y = "total.release",
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "total inflows", ylab = "total release")
 
+res1 <- cor.test(dat$total.inflows, dat$total.release, 
+                    method = "pearson")
+res1
 
 
 ggscatter(dat, x = "pool.elevation", y = "total.inflows",
@@ -41,24 +50,66 @@ ggscatter(dat, x = "pool.elevation", y = "total.inflows",
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "pool elevation", ylab = "total.inflows")
 
+res2 <- cor.test(dat$pool.elevation, dat$total.inflows, 
+                    method = "pearson")
+res2
+
 ggscatter(dat, x = "Group.1", y = "total.inflows",
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "Year", ylab = "total.inflows")
+
+res3 <- cor.test(dat$Group.1, dat$total.inflows, 
+                    method = "pearson")
+res3
 
 ggscatter(dat, x = "Group.1", y = "total.release",
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
           xlab = "Year", ylab = "total.release")
 
-
-
-res <- cor.test(dat$total.inflows, dat$total.release, 
+res4 <- cor.test(dat$Group.1, dat$total.release, 
                     method = "pearson")
-res
+res4
+
+##todo year vs elevation
+ggscatter(dat, x = "Group.1", y = "pool.elevation",
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Year", ylab = "pool.elevation")
+
+res5 <- cor.test(dat$Group.1, dat$pool.elevation, 
+                    method = "pearson")
+res5
+
+##todo year vs elevation
+ggscatter(dat2, x = "Group.1", y = "x",
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Year", ylab = "netflow")
+
+res5 <- cor.test(dat2$Group.1, dat2$x, 
+                    method = "pearson")
+res5
+
+
 
 
 ```
+```{r}
+ggscatter(dat, x = "Group.1", y = "total.release",
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Year", ylab = "total.release")
+
+res4 <- cor.test(dat$Group.1, dat$total.release, 
+                    method = "pearson")
+res4
+
+
+
+```
+
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
 
