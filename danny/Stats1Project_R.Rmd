@@ -8,7 +8,56 @@ This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute
 Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
 
 ```{r}
-plot(cars)
+knitr::opts_chunk$set(echo = TRUE)
+library("ggpubr")
+library(lubridate)
+
+```
+
+```{r}
+dat<-read.csv("Lake_Powel_Inflow_Elevation_Outflow.csv")
+# tdat<-tail(dat, n=10)
+# print(tdat)
+
+# tdat$newdate <- strptime(as.character(tdat$datetime), "%d/%m/%Y")
+
+dat<-aggregate(dat[, 2:4], list(dat$Year), mean)
+dat
+```
+
+
+```{r}
+
+
+ggscatter(dat, x = "total.inflows", y = "total.release",
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "total inflows", ylab = "total release")
+
+
+
+ggscatter(dat, x = "pool.elevation", y = "total.inflows",
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "pool elevation", ylab = "total.inflows")
+
+ggscatter(dat, x = "Group.1", y = "total.inflows",
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Year", ylab = "total.inflows")
+
+ggscatter(dat, x = "Group.1", y = "total.release",
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Year", ylab = "total.release")
+
+
+
+res <- cor.test(dat$total.inflows, dat$total.release, 
+                    method = "pearson")
+res
+
+
 ```
 
 Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
