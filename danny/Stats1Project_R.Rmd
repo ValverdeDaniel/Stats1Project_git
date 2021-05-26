@@ -15,7 +15,7 @@ library(lubridate)
 ```
 
 ```{r}
-dat<-read.csv("Lake_Powel_Inflow_Elevation_Outflow.csv")
+dat<-read.csv("Lake_Powel_Inflow_Elevation_Outflow_Evap.csv")
 dat$netflows <- dat$total.inflows - dat$total.release
 # tdat<-tail(dat, n=10)
 print(dat)
