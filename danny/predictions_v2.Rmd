@@ -1,0 +1,261 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(lubridate)
+library(forecast)
+
+
+# read and prep -----------------------------------------------------------
+dat <- read.csv("Lake_Powel_Inflow_Elevatoin_Outflow_Evap.csv")
+
+# Aggregate by each month (by minimum)
+dat$YEAR_MONTH <- paste0(year(mdy(dat$datetime)), "_", month(mdy(dat$datetime)))
+
+dat2 <- aggregate(dat[, 2:6], list(dat$YEAR_MONTH), min)
+
+dat2$YEAR <- as.numeric(sapply(dat2$Group.1, function(x) unlist(strsplit(x, "_"))[1]))
+dat2$MONTH <- as.numeric(sapply(dat2$Group.1, function(x) unlist(strsplit(x, "_"))[2]))
+
+dat2$MONTHS_SINCE_BEG <- (dat2$YEAR - 1963) * 12 + (dat2$MONTH - 12)
+
+# order by months since beginning
+dat2 <- dat2[order(dat2$MONTHS_SINCE_BEG, decreasing = FALSE), ]
+
+# start from month 200
+dat2 <- dat2[dat2$MONTHS_SINCE_BEG > 200, ]
+
+
+# time series plots -------------------------------------------------------
+par(mfrow = c(3, 2))
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 3, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Pool Elevation")
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$total.inflows, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Total Inflows")
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$total.release, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Total Release")
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$evaporation, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Evaporation")
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$power.release, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Power Release")
+par(mfrow = c(1, 1))
+
+# 
+# # https://a-little-book-of-r-for-time-series.readthedocs.io/en/latest/src/timeseries.html
+# library(forecast)
+# 
+# sensor <- ts(dat2$pool.elevation, frequency = 1, start = 200)
+# fit <- auto.arima(sensor)
+# fcast <- forecast(fit, h = 100)
+# plot(fcast)
+# grid()
+# 
+# fcast
+
+# forecast each predictor -------------------------------------------------
+for_plot <- list()
+all_fcasts <- list()
+for (variable in c("total.inflows", "total.release", "evaporation", "power.release")) {
+    tmp <- ts(dat2[, variable], frequency = 1, start = 200)
+    fit <- auto.arima(tmp)
+    fcast <- forecast(fit, h = 1000)
+    for_plot[[variable]]  <- fcast
+    fcast <- as.data.frame(fcast)
+    all_fcasts[[variable]] <- fcast
+}
+
+par(mfrow = c(2, 4))
+plot(dat2$MONTHS_SINCE_BEG, dat2$total.inflows, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Total Inflows")
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$total.release, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Total Release")
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$evaporation, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Evaporation")
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$power.release, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Power Release")
+
+plot(for_plot$total.inflows)
+plot(for_plot$total.release)
+plot(for_plot$evaporation)
+plot(for_plot$power.release)
+par(mfrow = c(1,1))
+
+
+# split data --------------------------------------------------------------
+library(caret)
+
+# 80% in training - 20% testing split
+train_idx <- seq_len(nrow(dat2) * .8)
+
+train_dat <- dat2[train_idx, ]
+test_dat <- dat2[-train_idx, ]
+
+# fit RF model ------------------------------------------------------------
+
+# Create control function for training with 10 folds. search method is grid.
+control <- trainControl(method = "cv", 
+                        number = 10, 
+                        search = "grid")
+
+# Create tunegrid with 15 values from 1:15 for mtry to tunning model. Our train function will change number of entry variable at each split according to tunegrid. 
+tunegrid <- expand.grid(.mtry = (1:15)) 
+
+rf_gridsearch <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total.release + evaporation + power.release,
+                       data = train_dat,
+                       method = "rf",
+                       metric = "RMSE",
+                       trControl = control,
+                       tuneGrid = tunegrid)
+print(rf_gridsearch)
+
+predictions <- predict(rf_gridsearch, newdata = test_dat)
+
+MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
+(RMSE <- sqrt(MSE_test))
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750))
+lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
+abline(h = 3500, col = "blue")
+
+
+# forecast pool elevation
+all_predictions <- c()
+for (t in rownames(all_fcasts$total.inflows)) {
+    tmp <- predict(rf_gridsearch,
+                   newdata = data.frame(MONTHS_SINCE_BEG = as.numeric(t), 
+                                        total.inflows = all_fcasts$total.inflows[t, "Point Forecast"],
+                                        total.release = all_fcasts$total.release[t, "Point Forecast"],
+                                        evaporation = all_fcasts$evaporation[t, "Point Forecast"],
+                                        power.release = all_fcasts$power.release[t, "Point Forecast"]))
+    
+    all_predictions <- c(all_predictions, tmp)
+}
+
+names(all_predictions) <- rownames(all_fcasts$total.inflows)
+
+
+
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), 
+     xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))))
+lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
+
+# fit kNN model -----------------------------------------------------------
+
+# Create control function for training with 10 folds. search method is grid.
+control <- trainControl(method = "cv", 
+                        number = 10, 
+                        search = "grid")
+
+knn_model <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total.release + evaporation + power.release,
+                       data = train_dat,
+                       method = "knn",
+                       metric = "RMSE",
+                       trControl = control)
+print(knn_model)
+
+predictions <- predict(knn_model, newdata = test_dat)
+
+MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
+(RMSE <- sqrt(MSE_test))
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750))
+lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
+abline(h = 3500, col = "blue")
+
+
+
+all_predictions <- c()
+for (t in rownames(all_fcasts$total.inflows)) {
+    tmp <- predict(knn_model,
+                   newdata = data.frame(MONTHS_SINCE_BEG = as.numeric(t), 
+                                        total.inflows = all_fcasts$total.inflows[t, "Point Forecast"],
+                                        total.release = all_fcasts$total.release[t, "Point Forecast"],
+                                        evaporation = all_fcasts$evaporation[t, "Point Forecast"],
+                                        power.release = all_fcasts$power.release[t, "Point Forecast"]))
+    
+    all_predictions <- c(all_predictions, tmp)
+}
+
+
+names(all_predictions) <- rownames(all_fcasts$total.inflows)
+
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, 1000))
+lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
+
+
+# fit Lasso model ---------------------------------------------------------
+
+# Create control function for training with 10 folds. search method is grid.
+control <- trainControl(method = "cv", 
+                        number = 10, 
+                        search = "grid")
+
+lambda <- 10^seq(-3, 3, length = 100)
+lasso_model <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total.release + evaporation + power.release,
+                   data = train_dat,
+                   method = "glmnet",
+                   metric = "RMSE",
+                   trControl = control,
+                   tuneGrid = expand.grid(alpha = 1, lambda = lambda))
+
+print(lasso_model)
+
+predictions <- predict(lasso_model, newdata = test_dat)
+
+MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
+(RMSE <- sqrt(MSE_test))
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750))
+lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
+abline(h = 3500, col = "blue")
+
+
+# forecast pool elevation
+all_predictions <- c()
+for (t in rownames(all_fcasts$total.inflows)) {
+    tmp <- predict(lasso_model,
+                   newdata = data.frame(MONTHS_SINCE_BEG = as.numeric(t), 
+                                        total.inflows = all_fcasts$total.inflows[t, "Point Forecast"],
+                                        total.release = all_fcasts$total.release[t, "Point Forecast"],
+                                        evaporation = all_fcasts$evaporation[t, "Point Forecast"],
+                                        power.release = all_fcasts$power.release[t, "Point Forecast"]))
+    
+    all_predictions <- c(all_predictions, tmp)
+}
+
+
+names(all_predictions) <- rownames(all_fcasts$total.inflows)
+
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))))
+lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
+abline(h = 3500, col = "blue")
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
