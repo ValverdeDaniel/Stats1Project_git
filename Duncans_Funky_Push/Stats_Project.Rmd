@@ -36,6 +36,50 @@ dat
 
 ```
 
+# Testing Anova Tests
+
+```{r}
+one.way <- aov(total.inflows ~ total.release, data=dat)
+summary(one.way)
+
+```
+
+# Oneway
+```{r}
+one.way_pool <- aov(pool.elevation ~ total.release, data=dat)
+summary(one.way_pool)
+```
+
+
+```{r}
+?aov
+
+```
+
+
+
+
+
+
+
+
+# Testing Flow
+
+```{r}
+dat 
+dat<-dat[dat$Year >1980]
+
+
+ggscatter(dat, x = "datetime", y = "pool.elevation",
+          add = "reg.line", conf.int=TRUE,
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "datetime", ylab = "pool.elevation")
+res4 <- cor.test(dat$Year, dat$netflows, meother = "pearsons") + geom_smooth()
+res4
+
+
+
+```
 
 
 

@@ -1,0 +1,21 @@
+---
+title: "Project_Data_Graphing"
+author: "Duncan Ferguson"
+date: "5/31/2021"
+output: html_document
+---
+
+# Library Imports
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+```
+
+# Importing Data
+```{r}
+dat <-read.csv("Lake_Powell_Data.csv")
+dat
+```
+

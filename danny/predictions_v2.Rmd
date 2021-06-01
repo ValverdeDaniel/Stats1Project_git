@@ -12,24 +12,7 @@ library(lubridate)
 library(forecast)
 
 
-# read and prep -----------------------------------------------------------
-dat <- read.csv("Lake_Powel_Inflow_Elevatoin_Outflow_Evap.csv")
 
-# Aggregate by each month (by minimum)
-dat$YEAR_MONTH <- paste0(year(mdy(dat$datetime)), "_", month(mdy(dat$datetime)))
-
-dat2 <- aggregate(dat[, 2:6], list(dat$YEAR_MONTH), min)
-
-dat2$YEAR <- as.numeric(sapply(dat2$Group.1, function(x) unlist(strsplit(x, "_"))[1]))
-dat2$MONTH <- as.numeric(sapply(dat2$Group.1, function(x) unlist(strsplit(x, "_"))[2]))
-
-dat2$MONTHS_SINCE_BEG <- (dat2$YEAR - 1963) * 12 + (dat2$MONTH - 12)
-
-# order by months since beginning
-dat2 <- dat2[order(dat2$MONTHS_SINCE_BEG, decreasing = FALSE), ]
-
-# start from month 200
-dat2 <- dat2[dat2$MONTHS_SINCE_BEG > 200, ]
 
 
 # time series plots -------------------------------------------------------
@@ -48,6 +31,7 @@ plot(dat2$MONTHS_SINCE_BEG, dat2$evaporation, type =  "l", lty = 1, col = "gray6
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$power.release, type =  "l", lty = 1, col = "gray60",
      xlab = "time since beginning (months)", ylab = "Power Release")
+
 par(mfrow = c(1, 1))
 
 # 
