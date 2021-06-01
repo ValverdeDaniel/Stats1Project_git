@@ -40,6 +40,24 @@ dat2 <- dat2[order(dat2$MONTHS_SINCE_BEG, decreasing = FALSE), ]
 dat2 <- dat2[dat2$MONTHS_SINCE_BEG > 197, ]
 dat2
 ```
+## Normalize data
+
+```{r}
+# normalize<- function(x){
+#   return ((x-min(x))/(max(x)-min(x)))
+# }
+# dat2$total.inflows <-normalize(dat2$total.inflows)
+# dat2$total.release <-normalize(dat2$total.release)
+# dat2$evaporation <- normalize(dat2$evaporation)
+# dat2$power.release <- normalize(dat2$power.release)
+# dat2$MONTHS_SINCE_BEG <-normalize(dat2$MONTHS_SINCE_BEG)
+# dat2$pool.elevation <- normalize(dat2$pool.elevation)
+# dat2
+# 
+
+```
+
+
 ## Split Data For training versus testing
 ```{r}
 # 80% in training - 20% testing split
@@ -88,16 +106,21 @@ rf_gridsearch <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total
                        trControl = control,
                        tuneGrid = tunegrid)
 print(rf_gridsearch)
+varImp(rf_gridsearch)
+
 
 predictions <- predict(rf_gridsearch, newdata = test_dat)
 
 MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
-(RMSE <- sqrt(MSE_test))
+RF_RMSE <- sqrt(MSE_test)
+cat("RF_RMSE ",RF_RMSE)
+
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
-     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750))
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="RF Model on Current Data")
 lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
-abline(h = 3500, col = "blue")
+abline(h = 3490, col = "blue")
+
 ```
 # FORCAST RANDOM FOREST
 ```{r}
@@ -121,20 +144,22 @@ names(all_predictions) <- rownames(all_fcasts$total.inflows)
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
      xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), 
-     xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))))
+     xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))), main="RF Model Prediction")
 lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
+abline(h = 3490, col = "blue")
 ```
 
 # KNN Model
 ```{r}
 
 
-knn_model <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total.release + evaporation +power.release,
+knn_model <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total.release + evaporation + power.release,
                        data = train_dat,
                        method = "knn",
                        metric = "RMSE",
                        trControl = control)
 print(knn_model)
+varImp(knn_model)
 
 predictions <- predict(knn_model, newdata = test_dat)
 
@@ -144,10 +169,14 @@ MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
 (RMSE <- sqrt(MSE_test))
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
-     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750))
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="KNN Model on Current Data")
 lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
-abline(h = 3500, col = "blue")
+abline(h = 3490, col = "blue")
 ```
+```{r}
+summary(dat2)
+```
+
 
 # KNN Prediction
 ```{r}
@@ -168,10 +197,9 @@ names(all_predictions) <- rownames(all_fcasts$total.inflows)
 
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
-     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, 1000))
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, 1000), main= "KNN Prediction")
 lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
-
-
+abline(h = 3490, col = "blue")
 ```
 
 # LASSO
@@ -185,6 +213,7 @@ lasso_model <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total.r
                    tuneGrid = expand.grid(alpha = 1, lambda = lambda))
 
 print(lasso_model)
+varImp(lasso_model)
 
 predictions <- predict(lasso_model, newdata = test_dat)
 
@@ -192,9 +221,9 @@ MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
 (RMSE <- sqrt(MSE_test))
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
-     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750))
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="Lasso Model on Current Data")
 lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
-abline(h = 3500, col = "blue")
+abline(h = 3490, col = "blue")
 
 ```
 
@@ -218,9 +247,14 @@ names(all_predictions) <- rownames(all_fcasts$total.inflows)
 
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
-     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))))
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))), main="Lasso Prediction")+points(x=1328, y=3490)
 lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
-abline(h = 3500, col = "blue")
+abline(h = 3490, col = "blue")
+```
+
+
+```{r}
+all_predictions
 ```
 
 
