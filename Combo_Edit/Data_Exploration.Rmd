@@ -93,6 +93,18 @@ plot_Outflows <- ggplot(data=dat %>% filter(dat$datetime >= as.Date("1980-01-01"
 plot_Outflows
 ```
 
+# Power Release
+```{r}
+plot_power_release <- ggplot(data=dat %>% filter(dat$datetime >= as.Date("1980-01-01")),
+                                aes(month(datetime, label=TRUE, abbr=TRUE),
+                                power.release, group=factor(year(datetime)), colour=factor(year(datetime))))+
+                                geom_smooth()+
+                                theme_classic()+
+                                labs(x="Month", colour="Year")+
+                                ggtitle("Power Release")
+plot_power_release
+```
+
 
 
 ```{r}
@@ -119,15 +131,54 @@ plot_evap
 ```
 
 
-
+# Box Plot Monthly Inflows
 
 ```{r}
 ggplot(dat)+geom_boxplot(aes(y=total.inflows,
                              fill=format(dat$datetime, '%m')))+
                              xlab("Month")+
                              guides(fill=guide_legend(title="Month"))+
-                             theme_bw()
+                             theme_bw() + ggtitle("Box Plot of Monthly Inflows")
+
+
 ```
 
+# Box Plot for Monlthy Release
+```{r}
+ggplot(dat)+geom_boxplot(aes(y=total.release,
+                             fill=format(dat$datetime, '%m')))+
+                             xlab("Month")+
+                             guides(fill=guide_legend(title="Month"))+
+                             theme_bw() + ggtitle("Box Plot of Monthly Release")
+```
 
+# Box Plot evaporation
+```{r}
+ggplot(dat)+geom_boxplot(aes(y=evaporation,
+                             fill=format(dat$datetime, '%m')))+
+                             xlab("Month")+
+                             guides(fill=guide_legend(title="Month"))+
+                             theme_bw() + ggtitle("Box Plot of Monthly Evaporation")
+```
+# Power Release
+
+
+# Box Plot Power Release
+```{r}
+ggplot(dat)+geom_boxplot(aes(y=power.release,
+                             fill=format(dat$datetime, '%m')))+
+                             xlab("Month")+
+                             guides(fill=guide_legend(title="Month"))+
+                             theme_bw() + ggtitle("Box Plot of Monthly Power Release")
+
+```
+
+# Box Plot Total Pool Elevation
+```{r}
+ggplot(dat)+geom_boxplot(aes(y=pool.elevation,
+                             fill=format(dat$datetime, '%m')))+
+                             xlab("Month")+
+                             guides(fill=guide_legend(title="Month"))+
+                             theme_bw() + ggtitle("Box Plot of Pool Elevation")
+```
 

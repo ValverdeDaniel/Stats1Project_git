@@ -10,6 +10,7 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 ```{r}
 library(lubridate)
 library(forecast)
+library(caret)
 
 
 # read and prep -----------------------------------------------------------
@@ -95,7 +96,7 @@ par(mfrow = c(1,1))
 
 
 # split data --------------------------------------------------------------
-library(caret)
+
 
 # 80% in training - 20% testing split
 train_idx <- seq_len(nrow(dat2) * .8)

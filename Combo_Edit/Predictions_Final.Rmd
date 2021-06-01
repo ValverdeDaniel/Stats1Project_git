@@ -66,6 +66,7 @@ train_idx <- seq_len(nrow(dat2) * .8)
 train_dat <- dat2[train_idx, ]
 test_dat <- dat2[-train_idx, ]
 ```
+
 ##FORCAST
 ```{r}
 # forecast each predictor -------------------------------------------------
@@ -250,11 +251,6 @@ plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5
      xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))), main="Lasso Prediction")+points(x=1328, y=3490)
 lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
 abline(h = 3490, col = "blue")
-```
-
-
-```{r}
-all_predictions
 ```
 
 
