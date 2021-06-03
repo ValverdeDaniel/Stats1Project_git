@@ -98,6 +98,7 @@ control <- trainControl(method = "cv",
 ```{r}
 
 # Create tunegrid with 15 values from 1:15 for mtry to tunning model. Our train function will change number of entry variable at each split according to tunegrid. 
+
 tunegrid <- expand.grid(.mtry = (1:15)) 
 
 rf_gridsearch <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total.release + evaporation + power.release,
@@ -118,7 +119,7 @@ cat("RF_RMSE ",RF_RMSE)
 
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
-     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="RF Model on Current Data")
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="RF Prediction on Current Data")
 lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
 abline(h = 3490, col = "blue")
 
@@ -145,7 +146,7 @@ names(all_predictions) <- rownames(all_fcasts$total.inflows)
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
      xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), 
-     xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))), main="RF Model Prediction")
+     xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))), main="RF Forecast")
 lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
 abline(h = 3490, col = "blue")
 ```
@@ -170,7 +171,7 @@ MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
 (RMSE <- sqrt(MSE_test))
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
-     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="KNN Model on Current Data")
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="KNN Prediction on Current Data")
 lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
 abline(h = 3490, col = "blue")
 ```
@@ -198,7 +199,7 @@ names(all_predictions) <- rownames(all_fcasts$total.inflows)
 
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
-     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, 1000), main= "KNN Prediction")
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, 1000), main= "KNN Forecast")
 lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
 abline(h = 3490, col = "blue")
 ```
@@ -222,7 +223,7 @@ MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
 (RMSE <- sqrt(MSE_test))
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
-     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="Lasso Model on Current Data")
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="Lasso Prediction on Current Data")
 lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
 abline(h = 3490, col = "blue")
 
@@ -248,7 +249,7 @@ names(all_predictions) <- rownames(all_fcasts$total.inflows)
 
 
 plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
-     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))), main="Lasso Prediction")+points(x=1328, y=3490)
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))), main="Lasso Forecast")+points(x=1328, y=3490)
 lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
 abline(h = 3490, col = "blue")
 ```
