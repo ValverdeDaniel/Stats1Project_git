@@ -1,0 +1,288 @@
+---
+title: "Predictions"
+author: "Duncan Ferguson"
+date: "5/31/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Working on KNN
+
+## Import Library
+```{r}
+library(lubridate)
+library(forecast)
+library(caret)
+```
+
+
+## Data Import and Data Manipulation
+```{r}
+dat <- read.csv("Lake_Powell_Data.csv")
+
+# Aggregate by each month (by minimum)
+dat$YEAR_MONTH <- paste0(year(mdy(dat$datetime)), "_", month(mdy(dat$datetime)))
+
+dat2 <- aggregate(dat[, 2:6], list(dat$YEAR_MONTH), mean)
+
+dat2$YEAR <- as.numeric(sapply(dat2$Group.1, function(x) unlist(strsplit(x, "_"))[1]))
+dat2$MONTH <- as.numeric(sapply(dat2$Group.1, function(x) unlist(strsplit(x, "_"))[2]))
+
+dat2$MONTHS_SINCE_BEG <- (dat2$YEAR - 1963) * 12 + (dat2$MONTH - 12)
+
+# order by months since beginning
+dat2 <- dat2[order(dat2$MONTHS_SINCE_BEG, decreasing = FALSE), ]
+
+# start from month 197 To get to Jun 1980
+dat2 <- dat2[dat2$MONTHS_SINCE_BEG > 197, ]
+dat2
+```
+## Normalize data
+
+```{r}
+# normalize<- function(x){
+#   return ((x-min(x))/(max(x)-min(x)))
+# }
+# dat2$total.inflows <-normalize(dat2$total.inflows)
+# dat2$total.release <-normalize(dat2$total.release)
+# dat2$evaporation <- normalize(dat2$evaporation)
+# dat2$power.release <- normalize(dat2$power.release)
+# dat2$MONTHS_SINCE_BEG <-normalize(dat2$MONTHS_SINCE_BEG)
+# dat2$pool.elevation <- normalize(dat2$pool.elevation)
+# dat2
+# 
+
+```
+
+
+
+
+## Split Data For training versus testing
+```{r}
+# 80% in training - 20% testing split
+train_idx <- seq_len(nrow(dat2) * .8)
+
+train_dat <- dat2[train_idx, ]
+test_dat <- dat2[-train_idx, ]
+```
+
+##FORCAST
+```{r}
+# forecast each predictor -------------------------------------------------
+for_plot <- list()
+all_fcasts <- list()
+for (variable in c("total.inflows", "total.release", "evaporation", "power.release")) {
+    tmp <- ts(dat2[, variable], frequency = 1, start = 200)
+    fit <- auto.arima(tmp)
+    fcast <- forecast(fit, h = 1000)
+    for_plot[[variable]]  <- fcast
+    fcast <- as.data.frame(fcast)
+    all_fcasts[[variable]] <- fcast
+}
+
+```
+
+##Graphing ARIMA
+
+```{r}
+
+par(mfrow = c(2, 4))
+plot(dat2$MONTHS_SINCE_BEG, dat2$total.inflows, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Total Inflows")
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$total.release, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Total Release")
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$evaporation, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Evaporation")
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$power.release, type =  "l", lty = 1, col = "gray60",
+     xlab = "time since beginning (months)", ylab = "Power Release")
+
+#these are the arima ones
+plot(for_plot$total.inflows)
+plot(for_plot$total.release)
+plot(for_plot$evaporation)
+plot(for_plot$power.release)
+par(mfrow = c(1,1))
+
+```
+
+# Creating Control function with 10 Folds
+```{r}
+# Create control function for training with 10 folds. search method is grid.
+control <- trainControl(method = "cv", 
+                        number = 10, 
+                        search = "grid")
+
+```
+
+
+## RF Model
+```{r}
+
+# Create tunegrid with 15 values from 1:15 for mtry to tunning model. Our train function will change number of entry variable at each split according to tunegrid. 
+tunegrid <- expand.grid(.mtry = (1:15)) 
+
+rf_gridsearch <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total.release + evaporation + power.release,
+                       data = train_dat,
+                       method = "rf",
+                       metric = "RMSE",
+                       trControl = control,
+                       tuneGrid = tunegrid)
+print(rf_gridsearch)
+varImp(rf_gridsearch)
+
+
+predictions <- predict(rf_gridsearch, newdata = test_dat)
+
+MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
+RF_RMSE <- sqrt(MSE_test)
+cat("RF_RMSE ",RF_RMSE)
+
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="RF Model on Current Data")
+lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
+abline(h = 3490, col = "blue")
+
+```
+# FORCAST RANDOM FOREST
+```{r}
+# forecast pool elevation
+all_predictions <- c()
+for (t in rownames(all_fcasts$total.inflows)) {
+    tmp <- predict(rf_gridsearch,
+                   newdata = data.frame(MONTHS_SINCE_BEG = as.numeric(t), 
+                                        total.inflows = all_fcasts$total.inflows[t, "Point Forecast"],
+                                        total.release = all_fcasts$total.release[t, "Point Forecast"],
+                                        evaporation = all_fcasts$evaporation[t, "Point Forecast"],
+                                        power.release = all_fcasts$power.release[t, "Point Forecast"]))
+    
+    all_predictions <- c(all_predictions, tmp)
+}
+
+names(all_predictions) <- rownames(all_fcasts$total.inflows)
+
+
+
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), 
+     xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))), main="RF Model Prediction")
+lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
+abline(h = 3490, col = "blue")
+```
+
+# KNN Model
+```{r}
+
+
+knn_model <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total.release + evaporation + power.release,
+                       data = train_dat,
+                       method = "knn",
+                       metric = "RMSE",
+                       trControl = control)
+print(knn_model)
+varImp(knn_model)
+
+predictions <- predict(knn_model, newdata = test_dat)
+
+MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
+
+#TODO figure out this
+(RMSE <- sqrt(MSE_test))
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="KNN Model on Current Data")
+lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
+abline(h = 3490, col = "blue")
+```
+```{r}
+summary(dat2)
+```
+
+
+# KNN Prediction
+```{r}
+all_predictions <- c()
+for (t in rownames(all_fcasts$total.inflows)) {
+    tmp <- predict(knn_model,
+                   newdata = data.frame(MONTHS_SINCE_BEG = as.numeric(t), 
+                                        total.inflows = all_fcasts$total.inflows[t, "Point Forecast"],
+                                        total.release = all_fcasts$total.release[t, "Point Forecast"],
+                                        evaporation = all_fcasts$evaporation[t, "Point Forecast"],
+                                        power.release = all_fcasts$power.release[t, "Point Forecast"]))
+    
+    all_predictions <- c(all_predictions, tmp)
+}
+
+
+names(all_predictions) <- rownames(all_fcasts$total.inflows)
+
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, 1000), main= "KNN Prediction")
+lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
+abline(h = 3490, col = "blue")
+```
+
+# LASSO
+```{r}
+lambda <- 10^seq(2, -3, length = 100)
+lasso_model <- train(pool.elevation ~ MONTHS_SINCE_BEG + total.inflows + total.release + evaporation + power.release,
+                   data = train_dat,
+                   method = "glmnet",
+                   metric = "RMSE",
+                   trControl = control,
+                   tuneGrid = expand.grid(alpha = 1, lambda = lambda))
+
+print(lasso_model)
+varImp(lasso_model)
+
+predictions <- predict(lasso_model, newdata = test_dat)
+
+MSE_test <- sum((test_dat$pool.elevation - predictions)^2) / nrow(test_dat)
+(RMSE <- sqrt(MSE_test))
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), main="Lasso Model on Current Data")
+lines(test_dat$MONTHS_SINCE_BEG, predictions, col = "red", lwd = 3)
+abline(h = 3490, col = "blue")
+
+```
+
+#LASSO PREDICTION
+```{r}
+# forecast pool elevation
+all_predictions <- c()
+for (t in rownames(all_fcasts$total.inflows)) {
+    tmp <- predict(lasso_model,
+                   newdata = data.frame(MONTHS_SINCE_BEG = as.numeric(t), 
+                                        total.inflows = all_fcasts$total.inflows[t, "Point Forecast"],
+                                        total.release = all_fcasts$total.release[t, "Point Forecast"],
+                                        evaporation = all_fcasts$evaporation[t, "Point Forecast"],
+                                        power.release = all_fcasts$power.release[t, "Point Forecast"]))
+    
+    all_predictions <- c(all_predictions, tmp)
+}
+
+
+names(all_predictions) <- rownames(all_fcasts$total.inflows)
+
+
+plot(dat2$MONTHS_SINCE_BEG, dat2$pool.elevation, type =  "l", lty = 1, lwd = 1.5,
+     xlab = "time since beginning (months)", ylab = "Pool Elevation", ylim = c(3400, 3750), xlim = c(200, max(as.numeric(rownames(all_fcasts$total.inflows)))), main="Lasso Prediction")+points(x=1328, y=3490)
+lines(as.numeric(names(all_predictions)), all_predictions, col = "red", lwd = 3)
+abline(h = 3490, col = "blue")
+```
+
+
+
+
+
+
+
